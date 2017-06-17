@@ -1,6 +1,7 @@
 var QUOTEDB_DOCUMENTS;
 var QUOTEDB_MAP;
 var idx;
+
 $.getJSON('quotes.json', reindex);
 
 function reindex(json) {
@@ -22,6 +23,8 @@ function reindex(json) {
 			this.add(doc);
 		}, this);
 	});
+
+	search_button_onclick();
 }
 
 
@@ -41,17 +44,48 @@ $(document).ready(function() {
 			return false;
 		};
 	});
+
+	search_button_onclick();
 });
 
-function search_quote_db() {
+function search_button_onclick() {
+	if (!idx) { return; };
+	if (!search_results_vue) { return; };
+
 	query = $('#search_query_box').val();
+	var result_documents;
+	if (!query) {
+		result_documents = QUOTEDB_DOCUMENTS;
+		result_documents.sort(function(a, b) {
+			return a["uploaded"] < b["uploaded"];
+		});
+		result_documents = result_documents.slice(0, 10);
+	}
+	else {
+		search_quote_db(query);
+	}
+	update_search_results_vue(result_documents);
+}
+
+function search_quote_db(query) {
 	results = idx.search(query);
 	result_documents = results.map(function(sr) {
-		doc = QUOTEDB_MAP[sr.ref]
+		return QUOTEDB_MAP[sr.ref]
+	});
+
+	result_documents.sort(function(a, b) {
+		return a["uploaded"] < b["uploaded"];
+	});
+
+	return result_documents
+};
+
+function update_search_results_vue(result_documents) {
+	result_output = result_documents.map(function(sr) {
 		return {
-			"uploaded": (new Date(doc["uploaded"])).toLocaleDateString(),
-			"lines": doc["lines"],
+			"uploaded": (new Date(sr["uploaded"])).toLocaleString(),
+			"lines": sr["lines"],
 		}
 	});
-	search_results_vue.search_results = result_documents;
-};
+	search_results_vue.search_results = result_output;
+}
