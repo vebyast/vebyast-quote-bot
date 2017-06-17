@@ -1,0 +1,13 @@
+{
+  "name": "pmas-discord-quotes",
+  "version": "1.0.0",
+  "description": "github static page for discord quotes",
+  "main": "index.js",
+  "repository": "git@github.com:vebyast/pmas-discord-quotes.git",
+  "author": "vebyast@gmail.com",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "http-server": "^0.10.0"
+  }
+}
