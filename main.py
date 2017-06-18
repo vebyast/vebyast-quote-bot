@@ -337,6 +337,7 @@ async def print_help(*, message, feedback, argstring):
             '  {command:15} {help}'.format(command='/remove', help='''Remove a quote from the database'''),
             '  {command:15} {help}'.format(command='/get', help='''Print out a quote from the database'''),
             '  {command:15} {help}'.format(command='/clean', help='''Clean up this bot's output'''),
+            '  {command:15} {help}'.format(command='/help', help='''Output this message'''),
             '',
             'Issue "@{} /command --help" for help with each individual command.'.format(client.user.display_name),
             '```'
