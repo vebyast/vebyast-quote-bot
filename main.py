@@ -75,7 +75,12 @@ async def on_message(message):
 @command('/add')
 async def command_addquote(*, message, feedback, argstring):
     parserio = io.StringIO()
-    lexed = shlex.split(argstring)
+    try:
+        lexed = shlex.split(argstring)
+    except Exception as e:
+        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
+        return
+
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/add',
         description='Add a quote.',
@@ -198,7 +203,12 @@ async def command_addquote(*, message, feedback, argstring):
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
     parserio = io.StringIO()
-    lexed = shlex.split(argstring)
+    try:
+        lexed = shlex.split(argstring)
+    except Exception as e:
+        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
+        return
+
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/remove',
         description='Remove a quote.',
@@ -238,7 +248,12 @@ async def remove_quote(*, message, feedback, argstring):
 @command('/get')
 async def get_quote(*, message, feedback, argstring):
     parserio = io.StringIO()
-    lexed = shlex.split(argstring)
+    try:
+        lexed = shlex.split(argstring)
+    except Exception as e:
+        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
+        return
+
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/get',
         description='Get a quote.',
@@ -272,7 +287,12 @@ async def get_quote(*, message, feedback, argstring):
 @command('/clean')
 async def clean(*, message, feedback, argstring):
     parserio = io.StringIO()
-    lexed = shlex.split(argstring)
+    try:
+        lexed = shlex.split(argstring)
+    except Exception as e:
+        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
+        return
+
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/clean',
         description='''Cleans up this bot's outputs.''',
