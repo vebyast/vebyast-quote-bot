@@ -3,3 +3,5 @@ GitPython
 pyparsing
 hashids
 pytz
+whoosh
+ipython
