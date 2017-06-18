@@ -4,3 +4,4 @@ pyparsing
 aiohttp
 cchardet
 aiodns
+requests
