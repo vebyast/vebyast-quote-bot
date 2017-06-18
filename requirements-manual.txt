@@ -1,7 +1,5 @@
 discord.py
 GitPython
 pyparsing
-aiohttp
-cchardet
-aiodns
-requests
+hashids
+pytz
