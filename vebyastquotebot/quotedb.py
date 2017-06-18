@@ -78,7 +78,7 @@ def format_quotehash(line, short=None, wrap=False):
     fstring = '**{user}:** {content}'
     content = line['content']
     if short:
-        content = content[:short],
+        content = content[:short]
     if wrap:
         content = wrap_single(content)
     return fstring.format(
@@ -86,17 +86,17 @@ def format_quotehash(line, short=None, wrap=False):
         content=content,
     )
 
-def format_message(m, short=None):
-    return format_quotehash(message_to_quotehash(m), short=short)
+def format_message(m, **kwargs):
+    return format_quotehash(message_to_quotehash(m), **kwargs)
 
-def format_messages(messages, short=None):
-    return '\n'.join(format_message(m, short=short) for m in messages)
+def format_messages(messages, **kwargs):
+    return '\n'.join(format_message(m, **kwargs) for m in messages)
 
-def format_quotehashes(lines, short=None):
-    return '\n'.join(format_quotehash(line, short=short) for line in lines)
+def format_quotehashes(lines, **kwargs):
+    return '\n'.join(format_quotehash(line, **kwargs) for line in lines)
 
-def format_quote(q, short=None):
-    return format_quotehashes(q['lines'], short)
+def format_quote(q, **kwargs):
+    return format_quotehashes(q['lines'], **kwargs)
 
 def wrap_single(s):
     return '`' + re.sub('`[^`]', r'\\\g<0>', s) + '`'
