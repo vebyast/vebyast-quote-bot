@@ -188,10 +188,11 @@ async def command_addquote(*, message, feedback, argstring):
     ) as quote:
         quote.add_quote(json_obj)
 
-    await client.edit_message(feedback, "Done with /add! Quote ID: {quote_id}. Quoted {nlines}: {result}".format(
+    await client.edit_message(feedback, "Done with /add! Quote ID: {quote_id}. Quoted {nlines}: {result}\nYou can view this bot's quotes at <{ui}>".format(
         nlines=len(json_obj['lines']),
         quote_id=json_obj['id'],
         result=quote_block,
+        ui=os.environ['USER_INTERFACE_URL']
     ))
 
 @command('/remove')
@@ -340,6 +341,8 @@ async def print_help(*, message, feedback, argstring):
             '  {command:15} {help}'.format(command='/help', help='''Output this message'''),
             '',
             'Issue "@{} /command --help" for help with each individual command.'.format(client.user.display_name),
+            '',
+            'Quotes uploaded using this bot can be viewed at {}.'.format(os.environ['USER_INTERFACE_URL']),
             '```'
         ])
     )
@@ -354,6 +357,9 @@ if 'DISCORD_BOT_TOKEN' not in os.environ:
     print('Need to set the DISCORD_BOT_TOKEN environment variable', file=sys.stderr)
     sys.exit(-1)
 
+if 'USER_INTERFACE_URL' not in os.environ:
+    print('Need to set the USER_INTERFACE_URL environment variable', file=sys.stderr)
+    sys.exit(-1)
 
 logging.basicConfig(level=logging.INFO)
 client.run(os.environ['DISCORD_BOT_TOKEN'])
