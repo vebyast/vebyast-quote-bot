@@ -41,6 +41,14 @@ def public_message_parse(command_line):
     except ps.ParseException:
         return None
 
+def command_line_parse(command_line):
+    try:
+        return (
+            ps.Or(ps.CaselessKeyword(com) for com in COMMANDS.keys()).setResultsName('command') +
+            ps.restOfLine.setResultsName('argstring')
+        ).parseString(command_line)
+    except ps.ParseException:
+        return None
 
 @client.event
 async def on_message(message):
@@ -49,17 +57,19 @@ async def on_message(message):
         return
 
     command_line = message.content
-    if (message.server):
+    if message.server:
         command_line = public_message_parse(command_line)
         if not command_line:
             # public channel and it doesn't parse as a command to us, so ignore
             # it.  there'll be a ton of this, so don't even bother logging it
             return
 
-    parseresult = (
-        ps.Or(ps.CaselessKeyword(com) for com in COMMANDS.keys()).setResultsName('command') +
-        ps.restOfLine.setResultsName('argstring')
-    ).parseString(command_line)
+    parseresult = command_line_parse(command_line)
+    if not parseresult:
+        # feedback = await client.send_message(message.channel, 'No command recognized. Try `@{} /help`?'.format(
+        #     client.user.display_name,
+        # ))
+        return
 
     feedback = await client.send_message(message.channel, 'Received command {}. Processing...'.format(parseresult.command))
 
@@ -120,9 +130,17 @@ async def command_addquote(*, message, feedback, argstring):
     limit = args.limit or DEFAULT_LIMIT
     limit = min(limit, MAX_LIMIT)
 
+    def parseable(message):
+        command_line = message.content
+        if message.server:
+            command_line = public_message_parse()
+            if not command_line:
+                return False
+        parse_result = command_line_parse(command_line)
+        return bool(parse_result)
+
     def find_message_filter_predicate(message):
-        return ((message.author != client.user) and
-                (not public_message_parse(message.content)))
+        return ((message.author != client.user) and not parseable(message))
 
     if args.start_id:
         start_id = args.start_id
