@@ -60,6 +60,15 @@ def channel_id_parse(arg):
     except ps.ParseException as e:
         return (None, e)
 
+async def handle_channel_arg(arg):
+    (channel_id, e) = channel_id_parse(arg)
+    if not channel_id:
+        return (None, "Error reading channel: {}".format(str(e)))
+    channel = client.get_channel(channel_id)
+    if not channel:
+        return (None, "Channel not found")
+    return (channel, None)
+
 @client.event
 async def on_message(message):
     # sorceror's apprentice protection, hopefully
@@ -144,13 +153,9 @@ async def command_addquote(*, message, feedback, argstring):
     if not args.channel:
         channel = message.channel
     else:
-        (channel_id, e) = channel_id_parse(args.channel)
-        if not channel_id:
-            await client.edit_message(feedback, "Error reading channel: {}".format(str(e)))
-            return
-        channel = client.get_channel(channel_id)
+        (channel, err) = await handle_channel_arg(args.channel)
         if not channel:
-            await client.edit_message(feedback, "Channel not found")
+            await client.edit_message(feedback, err)
             return
 
     limit = args.limit or DEFAULT_LIMIT
@@ -328,6 +333,7 @@ async def get_quote(*, message, feedback, argstring):
             q = quote.index[args.quote_id]
             await client.edit_message(feedback, vebyastquotebot.quotedb.format_quote(q))
 
+@command('/clear')
 @command('/clean')
 async def clean(*, message, feedback, argstring):
     parserio = io.StringIO()
@@ -343,12 +349,17 @@ async def clean(*, message, feedback, argstring):
         outfile=parserio,
     )
     volume_group = parser.add_mutually_exclusive_group(required=True)
-    volume_group.add_argument('-c', '--count',
+    volume_group.add_argument('-n', '--count',
                               type=int,
                               help='Clean up all logs going back this many messages in the channel')
     volume_group.add_argument('-m', '--minutes',
                               type=int,
                               help='Clean up all logs going back this many minutes')
+
+    parser.add_argument('-c', '--channel',
+                        type=str,
+                        help='The channel on the current server to pull quotes from.')
+
     try:
         args = parser.parse_args(args=lexed)
     except (vebyastquotebot.throwingargumentparser.ArgumentParserError,
@@ -357,6 +368,14 @@ async def clean(*, message, feedback, argstring):
         return
     finally:
         parserio.close()
+
+    if not args.channel:
+        channel = message.channel
+    else:
+        (channel, err) = await handle_channel_arg(args.channel)
+        if not channel:
+            await client.edit_message(feedback, err)
+            return
 
     await client.edit_message(feedback, "Processed command. Deleting posts ...")
 
@@ -372,7 +391,7 @@ async def clean(*, message, feedback, argstring):
 
     ndeletes = 0
     async for log in client.logs_from(
-            channel=message.channel,
+            channel=channel,
             **log_args
     ):
         if log.author == client.user and log.id != feedback.id:
