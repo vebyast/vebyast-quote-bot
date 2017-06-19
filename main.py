@@ -37,18 +37,28 @@ def public_message_parse(command_line):
             ps.Keyword('<@' + client.user.id + '>').setResultsName('user_id') +
             ps.restOfLine.setResultsName('command_line')
         ).parseString(command_line)
-        return parseresult['command_line']
-    except ps.ParseException:
-        return None
+        return (parseresult['command_line'], None)
+    except ps.ParseException as e:
+        return (None, e)
 
 def command_line_parse(command_line):
     try:
-        return (
+        return ((
             ps.Or(ps.CaselessKeyword(com) for com in COMMANDS.keys()).setResultsName('command') +
             ps.restOfLine.setResultsName('argstring')
-        ).parseString(command_line)
-    except ps.ParseException:
-        return None
+        ).parseString(command_line), None)
+    except ps.ParseException as e:
+        return (None, e)
+
+def channel_id_parse(arg):
+    try:
+        p = ps.Or((
+            ps.Word(ps.nums).setResultsName('channel_id'),
+            '<#' + ps.Word(ps.nums).setResultsName('channel_id') + '>',
+        ))
+        return (p.parseString(arg)['channel_id'], None)
+    except ps.ParseException as e:
+        return (None, e)
 
 @client.event
 async def on_message(message):
@@ -58,13 +68,13 @@ async def on_message(message):
 
     command_line = message.content
     if message.server:
-        command_line = public_message_parse(command_line)
+        (command_line, _) = public_message_parse(command_line)
         if not command_line:
             # public channel and it doesn't parse as a command to us, so ignore
             # it.  there'll be a ton of this, so don't even bother logging it
             return
 
-    parseresult = command_line_parse(command_line)
+    (parseresult, _) = command_line_parse(command_line)
     if not parseresult:
         # feedback = await client.send_message(message.channel, 'No command recognized. Try `@{} /help`?'.format(
         #     client.user.display_name,
@@ -111,6 +121,10 @@ async def command_addquote(*, message, feedback, argstring):
     end_group.add_argument('-e', '--end',
                            type=str,
                            help='A string to locate the last line of the quote. Does an unordered full-text fuzzy search over recent messages.')
+
+    parser.add_argument('-c', '--channel',
+                        type=str,
+                        help='The channel on the current server to pull quotes from.')
     parser.add_argument('--limit',
                         type=int,
                         help='Maximum number of lines to pull')
@@ -127,16 +141,28 @@ async def command_addquote(*, message, feedback, argstring):
     finally:
         parserio.close()
 
+    if not args.channel:
+        channel = message.channel
+    else:
+        (channel_id, e) = channel_id_parse(args.channel)
+        if not channel_id:
+            await client.edit_message(feedback, "Error reading channel: {}".format(str(e)))
+            return
+        channel = client.get_channel(channel_id)
+        if not channel:
+            await client.edit_message(feedback, "Channel not found")
+            return
+
     limit = args.limit or DEFAULT_LIMIT
     limit = min(limit, MAX_LIMIT)
 
     def parseable(message):
         command_line = message.content
         if message.server:
-            command_line = public_message_parse()
+            (command_line, _) = public_message_parse(command_line)
             if not command_line:
                 return False
-        parse_result = command_line_parse(command_line)
+        (parse_result, _) = command_line_parse(command_line)
         return bool(parse_result)
 
     def find_message_filter_predicate(message):
@@ -144,14 +170,14 @@ async def command_addquote(*, message, feedback, argstring):
 
     if args.start_id:
         start_id = args.start_id
-        start_message = await client.get_message(message.channel, start_id)
+        start_message = await client.get_message(channel, start_id)
     elif args.start:
         (start_message, start_message_err) = await vebyastquotebot.searching.find_message(
             client=client,
             feedback=feedback,
             querystring=args.start,
             limit=limit,
-            channel=message.channel,
+            channel=channel,
             predicate=find_message_filter_predicate,
         )
     if not start_message:
@@ -160,14 +186,14 @@ async def command_addquote(*, message, feedback, argstring):
 
     if args.end_id:
         end_id = args.end_id
-        end_message = await client.get_message(message.channel, end_id)
+        end_message = await client.get_message(channel, end_id)
     elif args.end:
         (end_message, end_message_err) = await vebyastquotebot.searching.find_message(
             client=client,
             feedback=feedback,
             querystring=args.end,
             limit=limit,
-            channel=message.channel,
+            channel=channel,
             predicate=find_message_filter_predicate,
         )
     if not end_message:
@@ -175,7 +201,7 @@ async def command_addquote(*, message, feedback, argstring):
         return
 
     if start_message.channel != end_message.channel:
-        await client.edit_message(feedback, 'Error in /add: Messages must be from the same channel.')
+        await client.edit_message(feedback, 'Error in /add: Start and end messages must be from the same channel.')
         return
 
     start_block = vebyastquotebot.quotedb.format_message(start_message, short=30, wrap=True)
@@ -211,11 +237,11 @@ async def command_addquote(*, message, feedback, argstring):
     ) as quote:
         quote.add_quote(json_obj)
 
-    await client.edit_message(feedback, "Done with /add! Quote ID: {quote_id}. Quoted {nlines}: {result}\nYou can view this bot's quotes at <{ui}>".format(
+    await client.edit_message(feedback, "Done with /add! Quoted {result} ({nlines} lines).\nResult (maybe after a wait): <{url}>".format(
         nlines=len(json_obj['lines']),
         quote_id=json_obj['id'],
         result=quote_block,
-        ui=os.environ['USER_INTERFACE_URL']
+        url=os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
     ))
 
 @command('/remove')
@@ -300,7 +326,7 @@ async def get_quote(*, message, feedback, argstring):
             ))
         else:
             q = quote.index[args.quote_id]
-            await client.edit_message(feedback, vebyastquotebot.quotedb.format_quotehashes(q))
+            await client.edit_message(feedback, vebyastquotebot.quotedb.format_quote(q))
 
 @command('/clean')
 async def clean(*, message, feedback, argstring):
