@@ -72,6 +72,8 @@ def message_to_quotehash(log):
         'timestamp': pytz.utc.localize(log.timestamp).isoformat(),
         'edited': pytz.utc.localize(log.edited_timestamp).isoformat() if log.edited_timestamp else None,
         'content': log.clean_content,
+        'server': log.server.name if log.server else 'Private Messages',
+        'channel': log.channel.name if log.channel else 'Private Messages',
     }
 
 def format_quotehash(line, short=None, wrap=False):
