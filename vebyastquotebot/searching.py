@@ -79,7 +79,10 @@ async def find_message(*,
     )
 
     if len(search_results) == 0:
-        return (None, 'No posts matching query.')
+        err = 'No posts matching query.'
+        if querystring.isdigit():
+            err += ' Did you mean to find by ID? See --help.'
+        return (None, err)
     elif len(search_results) > 1:
         resultstring = 'Multiple posts matching query:\n{}'.format(
             vebyastquotebot.quotedb.format_messages(

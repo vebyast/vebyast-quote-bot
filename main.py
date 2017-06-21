@@ -179,7 +179,14 @@ async def command_addquote(*, message, feedback, argstring):
 
     if args.start_id:
         start_id = args.start_id
-        start_message = await client.get_message(channel, start_id)
+        try:
+            start_message = await client.get_message(channel, start_id)
+        except discord.errors.NotFound as e:
+            await client.edit_message(feedback, "Could not find message with ID {m_id}: {err}. Wrong channel? Try `--channel`.".format(
+                m_id = start_id,
+                err = str(e),
+            ))
+            return
     elif args.start:
         (start_message, start_message_err) = await vebyastquotebot.searching.find_message(
             client=client,
@@ -190,12 +197,19 @@ async def command_addquote(*, message, feedback, argstring):
             predicate=find_message_filter_predicate,
         )
     if not start_message:
-        await client.edit_message(feedback, "Could not find start message: " + start_message_err)
+        await client.edit_message(feedback, "Could not find start message: {}".format(start_message_err))
         return
 
     if args.end_id:
         end_id = args.end_id
-        end_message = await client.get_message(channel, end_id)
+        try:
+            end_message = await client.get_message(channel, end_id)
+        except discord.errors.NotFound as e:
+            await client.edit_message(feedback, "Could not find message with ID {m_id}: {err}. Wrong channel? Try `--channel`.".format(
+                m_id = end_id,
+                err = str(e),
+            ))
+            return
     elif args.end:
         (end_message, end_message_err) = await vebyastquotebot.searching.find_message(
             client=client,
@@ -210,6 +224,7 @@ async def command_addquote(*, message, feedback, argstring):
         return
 
     if start_message.channel != end_message.channel:
+        # this should never happen. just in case, though...
         await client.edit_message(feedback, 'Error in /add: Start and end messages must be from the same channel.')
         return
 
@@ -230,6 +245,15 @@ async def command_addquote(*, message, feedback, argstring):
         limit=limit,
     )
 
+    if len(logs) == limit:
+        await client.edit_message(feedback, "Got exactly {limit} logs. If your quote is long it may have been truncated. Specify a larger limit? See `--help`".format(
+            limit=limit,
+        ))
+        return
+    if len(logs) == MAX_LIMIT:
+        await client.edit_message(feedback, "Whoa, that's a big quote. Too big, in fact. :/ Talk to the bot's owner for help getting that many logs.")
+        return
+
     await client.edit_message(feedback, "Got logs. Processing logs..." + quote_message)
 
     json_obj = {
@@ -240,18 +264,24 @@ async def command_addquote(*, message, feedback, argstring):
 
     await client.edit_message(feedback, "Processed logs. Saving and uploading..." + quote_message)
 
-    with vebyastquotebot.quotedb.QuoteDB(
-            docommit=vebyastquotebot.quotedb.QuoteDBCommit[os.environ['QUOTE_DB_COMMIT']],
-            commit_message='/add (by {}#{})'.format(message.author.name, message.author.discriminator),
-    ) as quote:
-        quote.add_quote(json_obj)
+    if not args.noop:
+        with vebyastquotebot.quotedb.QuoteDB(
+                docommit=vebyastquotebot.quotedb.QuoteDBCommit[os.environ['QUOTE_DB_COMMIT']],
+                commit_message='/add (by {}#{})'.format(message.author.name, message.author.discriminator),
+        ) as quote:
+            quote.add_quote(json_obj)
 
-    await client.edit_message(feedback, "Done with /add! Quoted {result} ({nlines} lines).\nResult (maybe after a wait): <{url}>".format(
-        nlines=len(json_obj['lines']),
-        quote_id=json_obj['id'],
-        result=quote_block,
-        url=os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
-    ))
+        await client.edit_message(feedback, "Done with /add! Quoted {result} ({nlines} lines).\nResult (maybe after a wait): <{url}>".format(
+            nlines=len(json_obj['lines']),
+            quote_id=json_obj['id'],
+            result=quote_block,
+            url=os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
+        ))
+    else:
+        await client.edit_message(feedback, "NOOP passed, but /add would have been Done: {result} ({nlines} lines).".format(
+            nlines=len(json_obj['lines']),
+            result=quote_block,
+        ))
 
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
