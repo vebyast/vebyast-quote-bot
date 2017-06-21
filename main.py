@@ -133,13 +133,13 @@ async def command_addquote(*, message, feedback, argstring):
 
     parser.add_argument('-c', '--channel',
                         type=str,
-                        help='The channel on the current server to pull quotes from.')
+                        help='The channel to pull quotes from.')
     parser.add_argument('--limit',
                         type=int,
                         help='Maximum number of lines to pull')
-    parser.add_argument('--around',
-                        type=int,
-                        help='The fuzzy start and end arguments search recent history. If you want to search older history, this argument will instruct the bot to search around an id for the start and end arguments.')
+    # parser.add_argument('--around',
+    #                     type=int,
+    #                     help='The fuzzy start and end arguments search recent history. If you want to search older history, this argument will instruct the bot to search around an id for the start and end arguments. NOT YET IMPLEMENTED.')
 
     parser.add_argument('-n', '--noop',
                         action='store_true',
@@ -147,9 +147,11 @@ async def command_addquote(*, message, feedback, argstring):
 
     try:
         args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError,
-            vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
         await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+        return
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
         return
     finally:
         parserio.close()
@@ -246,7 +248,7 @@ async def command_addquote(*, message, feedback, argstring):
     )
 
     if len(logs) == limit:
-        await client.edit_message(feedback, "Got exactly {limit} logs. If your quote is long it may have been truncated. Specify a larger limit? See `--help`".format(
+        await client.edit_message(feedback, "Got exactly {limit} logs. If your quote is long it may have been truncated, so the add has been aborted. Specify a larger limit? See `--help`".format(
             limit=limit,
         ))
         return
@@ -306,9 +308,11 @@ async def remove_quote(*, message, feedback, argstring):
                         help='An id of a quote to be deleted. Can be given multiple times.')
     try:
         args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError,
-            vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
         await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+        return
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
         return
     finally:
         parserio.close()
@@ -350,9 +354,11 @@ async def get_quote(*, message, feedback, argstring):
                         help='The id of the quote to be quoted.')
     try:
         args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError,
-            vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
         await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+        return
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
         return
     finally:
         parserio.close()
@@ -395,13 +401,15 @@ async def clean(*, message, feedback, argstring):
 
     parser.add_argument('-c', '--channel',
                         type=str,
-                        help='The channel on the current server to pull quotes from.')
+                        help='The channel to clean up.')
 
     try:
         args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError,
-            vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
         await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+        return
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
         return
     finally:
         parserio.close()
