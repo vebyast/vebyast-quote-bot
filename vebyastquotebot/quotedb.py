@@ -4,6 +4,7 @@ import os
 import vebyastquotebot.orderedenum
 import pytz
 import re
+import discord
 
 class QuoteDBCommit(vebyastquotebot.orderedenum.OrderedEnum):
     READONLY = 1
@@ -65,15 +66,14 @@ class QuoteDB(object):
         if self.docommit >= QuoteDBCommit.PUSH:
             self.push()
 
-def message_to_quotehash(log):
+def message_to_json(log):
     return {
         'author': log.author.display_name,
         'author_id': log.author.id,
         'timestamp': pytz.utc.localize(log.timestamp).isoformat(),
         'edited': pytz.utc.localize(log.edited_timestamp).isoformat() if log.edited_timestamp else None,
         'content': log.clean_content,
-        'server': log.server.name if log.server else 'Private Messages',
-        'channel': log.channel.name if log.channel else 'Private Messages',
+        'authorcolor': '#{:06X}'.format(log.author.colour.value) if log.author.color.value else None,
     }
 
 def format_quotehash(line, short=None, wrap=False):
@@ -89,7 +89,7 @@ def format_quotehash(line, short=None, wrap=False):
     )
 
 def format_message(m, **kwargs):
-    return format_quotehash(message_to_quotehash(m), **kwargs)
+    return format_quotehash(message_to_json(m), **kwargs)
 
 def format_messages(messages, **kwargs):
     return '\n'.join(format_message(m, **kwargs) for m in messages)

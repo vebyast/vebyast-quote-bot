@@ -257,9 +257,12 @@ async def command_addquote(*, message, feedback, argstring):
     await client.edit_message(feedback, "Got logs. Processing logs..." + quote_message)
 
     json_obj = {
-        'id': int(message.id),  # reuse the id of the command message
-        'lines': [vebyastquotebot.quotedb.message_to_quotehash(log) for log in logs],
+        'id': str(message.id),  # reuse the id of the command message, but
+                                # tostring because javascript is shit
+        'lines': [vebyastquotebot.quotedb.message_to_json(log) for log in logs],
         'quoted': datetime.datetime.utcnow().isoformat(),
+        'server': channel.server.name if channel.server else 'Private Messages',
+        'channel': channel.name or 'Private Messages',
     }
 
     await client.edit_message(feedback, "Processed logs. Saving and uploading..." + quote_message)
