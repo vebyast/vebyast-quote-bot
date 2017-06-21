@@ -141,6 +141,10 @@ async def command_addquote(*, message, feedback, argstring):
                         type=int,
                         help='The fuzzy start and end arguments search recent history. If you want to search older history, this argument will instruct the bot to search around an id for the start and end arguments.')
 
+    parser.add_argument('-n', '--noop',
+                        action='store_true',
+                        help="""Don't actually do anything. Useful for, for example, making sure you have the right messages matched before uploading.""")
+
     try:
         args = parser.parse_args(args=lexed)
     except (vebyastquotebot.throwingargumentparser.ArgumentParserError,
@@ -264,7 +268,7 @@ async def remove_quote(*, message, feedback, argstring):
         outfile=parserio,
     )
     parser.add_argument('quote_id',
-                        type=int,
+                        type=str,
                         action='append',
                         help='An id of a quote to be deleted. Can be given multiple times.')
     try:
@@ -309,7 +313,7 @@ async def get_quote(*, message, feedback, argstring):
         outfile=parserio,
     )
     parser.add_argument('quote_id',
-                        type=int,
+                        type=str,
                         help='The id of the quote to be quoted.')
     try:
         args = parser.parse_args(args=lexed)
