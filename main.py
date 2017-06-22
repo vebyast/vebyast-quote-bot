@@ -4,6 +4,7 @@ import logging
 import pyparsing as ps
 import shlex
 import datetime
+import vebyastquotebot.helpformatter
 import vebyastquotebot.quotedb
 import vebyastquotebot.searching
 import vebyastquotebot.throwingargumentparser
@@ -112,38 +113,36 @@ async def command_addquote(*, message, feedback, argstring):
 
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/add',
-        description='Add a quote.',
+        description='add a quote.',
         outfile=parserio,
+        formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
     start_group = parser.add_mutually_exclusive_group(required=True)
     start_group.add_argument('-S', '--start_id',
                              type=int,
-                             help='The id of the first line of the quote, obtained using the discord developer mode')
+                             help='start of the quote, found by message ID (get using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID)')
     start_group.add_argument('-s', '--start',
                              type=str,
-                             help='A string to locate the first line of the quote. Does an unordered full-text fuzzy search over recent messages.')
+                             help='start of the quote, found by searching recent messages for matching words')
 
     end_group = parser.add_mutually_exclusive_group(required=True)
     end_group.add_argument('-E', '--end_id',
                            type=int,
-                           help='The id of the last line of the quote, obtained using the discord developer mode')
+                           help='start of the quote, found by message ID (get using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID)')
     end_group.add_argument('-e', '--end',
                            type=str,
-                           help='A string to locate the last line of the quote. Does an unordered full-text fuzzy search over recent messages.')
+                           help='end of the quote, found by searching recent messages for matching words')
 
     parser.add_argument('-c', '--channel',
                         type=str,
-                        help='The channel to pull quotes from.')
+                        help='channel to pull quotes from')
     parser.add_argument('--limit',
                         type=int,
-                        help='Maximum number of lines to pull')
-    # parser.add_argument('--around',
-    #                     type=int,
-    #                     help='The fuzzy start and end arguments search recent history. If you want to search older history, this argument will instruct the bot to search around an id for the start and end arguments. NOT YET IMPLEMENTED.')
+                        help='maximum number of lines to pull')
 
     parser.add_argument('-n', '--noop',
                         action='store_true',
-                        help="""Don't actually do anything. Useful for, for example, making sure you have the right messages matched before uploading.""")
+                        help="""don't do the final upload. for testing.""")
 
     try:
         args = parser.parse_args(args=lexed)
@@ -299,13 +298,14 @@ async def remove_quote(*, message, feedback, argstring):
 
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/remove',
-        description='Remove a quote.',
+        description='remove a quote.',
         outfile=parserio,
+        formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
     parser.add_argument('quote_id',
                         type=str,
                         action='append',
-                        help='An id of a quote to be deleted. Can be given multiple times.')
+                        help='id of a quote to be deleted. can be given multiple times.')
     try:
         args = parser.parse_args(args=lexed)
     except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
@@ -346,12 +346,13 @@ async def get_quote(*, message, feedback, argstring):
 
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/get',
-        description='Get a quote.',
+        description='get a quote.',
         outfile=parserio,
+        formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
     parser.add_argument('quote_id',
                         type=str,
-                        help='The id of the quote to be quoted.')
+                        help='the id of the quote to be quoted.')
     try:
         args = parser.parse_args(args=lexed)
     except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
@@ -390,18 +391,19 @@ async def clean(*, message, feedback, argstring):
         prog='/clean',
         description='''Cleans up this bot's outputs.''',
         outfile=parserio,
+        formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
     volume_group = parser.add_mutually_exclusive_group(required=True)
     volume_group.add_argument('-n', '--count',
                               type=int,
-                              help='Clean up all logs going back this many messages in the channel')
+                              help='''clean up this bot's messages going back this many messages in the channel''')
     volume_group.add_argument('-m', '--minutes',
                               type=int,
-                              help='Clean up all logs going back this many minutes')
+                              help='''clean up this bot's messages going back this many minutes''')
 
     parser.add_argument('-c', '--channel',
                         type=str,
-                        help='The channel to clean up.')
+                        help='channel to clean up.')
 
     try:
         args = parser.parse_args(args=lexed)
