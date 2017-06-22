@@ -58,7 +58,6 @@ def search_messages(*,
 
 async def find_message(*,
                        client,
-                       feedback,
                        channel,
                        querystring,
                        limit,

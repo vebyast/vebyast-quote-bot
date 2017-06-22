@@ -70,6 +70,56 @@ async def handle_channel_arg(arg):
         return (None, "Channel not found")
     return (channel, None)
 
+async def argstring_parse(argstring, parser, parserio):
+    try:
+        lexed = shlex.split(argstring)
+    except Exception as e:
+        return (None, "Could not parse command string: {}".format(str(e)))
+
+    try:
+        args = parser.parse_args(args=lexed)
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
+        return (None, vebyastquotebot.quotedb.wrap_triple(str(e)))
+    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
+        return (None, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
+    return (args, None)
+
+
+def parseable(message):
+    command_line = message.content
+    if message.server:
+        (command_line, _) = public_message_parse(command_line)
+        if not command_line:
+            return False
+    (parse_result, _) = command_line_parse(command_line)
+    return bool(parse_result)
+
+def find_message_filter_predicate(message):
+    return ((message.author != client.user) and not parseable(message))
+
+async def handle_message_arg(id_arg, query_arg, limit, channel):
+    if id_arg:
+        message_id = id_arg
+        try:
+            message = await client.get_message(channel, message_id)
+        except discord.errors.NotFound as e:
+            return (None, "Could not find message with ID {m_id}: {err}. Wrong channel? Try `--channel`.".format(
+                m_id = message_id,
+                err = str(e),
+            ))
+    elif query_arg:
+        (message, err) = await vebyastquotebot.searching.find_message(
+            client=client,
+            querystring=query_arg,
+            limit=limit,
+            channel=channel,
+            predicate=find_message_filter_predicate,
+        )
+
+    if not message:
+        return (None, "Could not find message: {}".format(err))
+    return (message, err)
+
 @client.event
 async def on_message(message):
     # sorceror's apprentice protection, hopefully
@@ -105,11 +155,6 @@ async def on_message(message):
 @command('/add')
 async def command_addquote(*, message, feedback, argstring):
     parserio = io.StringIO()
-    try:
-        lexed = shlex.split(argstring)
-    except Exception as e:
-        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
-        return
 
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/add',
@@ -144,85 +189,32 @@ async def command_addquote(*, message, feedback, argstring):
                         action='store_true',
                         help="""don't do the final upload. for testing.""")
 
-    try:
-        args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    if not args:
+        await client.edit_message(feedback, args_err)
         return
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
-        return
-    finally:
-        parserio.close()
 
     if not args.channel:
         channel = message.channel
     else:
-        (channel, err) = await handle_channel_arg(args.channel)
+        (channel, channel_err) = await handle_channel_arg(args.channel)
         if not channel:
-            await client.edit_message(feedback, err)
+            await client.edit_message(feedback, channel_err)
             return
 
     limit = args.limit or DEFAULT_LIMIT
     limit = min(limit, MAX_LIMIT)
 
-    def parseable(message):
-        command_line = message.content
-        if message.server:
-            (command_line, _) = public_message_parse(command_line)
-            if not command_line:
-                return False
-        (parse_result, _) = command_line_parse(command_line)
-        return bool(parse_result)
+    (start_message, start_err) = handle_message_arg(args.start_id, args.start, limit, channel)
+    (end_message, end_err) = handle_message_arg(args.end_id, args.end, limit, channel)
 
-    def find_message_filter_predicate(message):
-        return ((message.author != client.user) and not parseable(message))
-
-    if args.start_id:
-        start_id = args.start_id
-        try:
-            start_message = await client.get_message(channel, start_id)
-        except discord.errors.NotFound as e:
-            await client.edit_message(feedback, "Could not find message with ID {m_id}: {err}. Wrong channel? Try `--channel`.".format(
-                m_id = start_id,
-                err = str(e),
-            ))
-            return
-    elif args.start:
-        (start_message, start_message_err) = await vebyastquotebot.searching.find_message(
-            client=client,
-            feedback=feedback,
-            querystring=args.start,
-            limit=limit,
-            channel=channel,
-            predicate=find_message_filter_predicate,
-        )
-    if not start_message:
-        await client.edit_message(feedback, "Could not find start message: {}".format(start_message_err))
-        return
-
-    if args.end_id:
-        end_id = args.end_id
-        try:
-            end_message = await client.get_message(channel, end_id)
-        except discord.errors.NotFound as e:
-            await client.edit_message(feedback, "Could not find message with ID {m_id}: {err}. Wrong channel? Try `--channel`.".format(
-                m_id = end_id,
-                err = str(e),
-            ))
-            return
-    elif args.end:
-        (end_message, end_message_err) = await vebyastquotebot.searching.find_message(
-            client=client,
-            feedback=feedback,
-            querystring=args.end,
-            limit=limit,
-            channel=channel,
-            predicate=find_message_filter_predicate,
-        )
-    if not end_message:
-        await client.edit_message(feedback, "Could not find end message: " + end_message_err)
-        return
+    if not start_message or not end_message:
+        errs = []
+        if not start_message:
+            errs += [start_err]
+        if not end_message:
+            errs += [end_err]
+        await client.edit_message(feedback, '\n'.join(errs))
 
     if start_message.channel != end_message.channel:
         # this should never happen. just in case, though...
@@ -290,12 +282,6 @@ async def command_addquote(*, message, feedback, argstring):
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
     parserio = io.StringIO()
-    try:
-        lexed = shlex.split(argstring)
-    except Exception as e:
-        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
-        return
-
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/remove',
         description='remove a quote.',
@@ -306,16 +292,10 @@ async def remove_quote(*, message, feedback, argstring):
                         type=str,
                         action='append',
                         help='id of a quote to be deleted. can be given multiple times.')
-    try:
-        args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    if not args:
+        await client.edit_message(feedback, args_err)
         return
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
-        return
-    finally:
-        parserio.close()
 
     await client.edit_message(feedback, "Processed command. Removing quote...")
 
@@ -338,12 +318,6 @@ async def remove_quote(*, message, feedback, argstring):
 @command('/get')
 async def get_quote(*, message, feedback, argstring):
     parserio = io.StringIO()
-    try:
-        lexed = shlex.split(argstring)
-    except Exception as e:
-        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
-        return
-
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/get',
         description='get a quote.',
@@ -353,16 +327,10 @@ async def get_quote(*, message, feedback, argstring):
     parser.add_argument('quote_id',
                         type=str,
                         help='the id of the quote to be quoted.')
-    try:
-        args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    if not args:
+        await client.edit_message(feedback, args_err)
         return
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
-        return
-    finally:
-        parserio.close()
 
     await client.edit_message(feedback, "Processed command. Getting quote...")
 
@@ -381,12 +349,6 @@ async def get_quote(*, message, feedback, argstring):
 @command('/clean')
 async def clean(*, message, feedback, argstring):
     parserio = io.StringIO()
-    try:
-        lexed = shlex.split(argstring)
-    except Exception as e:
-        await client.edit_message(feedback, "Could not parse command string: {}".format(str(e)))
-        return
-
     parser = vebyastquotebot.throwingargumentparser.ThrowingArgumentParser(
         prog='/clean',
         description='''Cleans up this bot's outputs.''',
@@ -405,16 +367,10 @@ async def clean(*, message, feedback, argstring):
                         type=str,
                         help='channel to clean up.')
 
-    try:
-        args = parser.parse_args(args=lexed)
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserError) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(str(e)))
+    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    if not args:
+        await client.edit_message(feedback, args_err)
         return
-    except (vebyastquotebot.throwingargumentparser.ArgumentParserExited) as e:
-        await client.edit_message(feedback, vebyastquotebot.quotedb.wrap_triple(parserio.getvalue()))
-        return
-    finally:
-        parserio.close()
 
     if not args.channel:
         channel = message.channel
