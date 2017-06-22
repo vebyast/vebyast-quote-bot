@@ -97,15 +97,35 @@ def parseable(message):
 def find_message_filter_predicate(message):
     return ((message.author != client.user) and not parseable(message))
 
+async def user_exists(user_id):
+    try:
+        await client.get_user_info(user_id)
+        return True
+    except discord.NotFount:
+        return False
+
+def channel_exists(channel_id):
+    return not not client.get_channel(channel_id)
+
 async def handle_message_arg(id_arg, query_arg, limit, channel):
+    message = None
+    err = None
     if id_arg:
         message_id = id_arg
         try:
             message = await client.get_message(channel, message_id)
         except discord.errors.NotFound as e:
-            return (None, "Could not find message with ID {m_id}: {err}. Wrong channel? Try `--channel`.".format(
+            if await user_exists(message_id):
+                suggestion = "It's a valid user ID, though; did you misclick?"
+            elif channel_exists(message_id):
+                suggestion = "It's a valid channel ID, though; did you misclick?"
+            else:
+                suggestion = "Do you need a different `--channel`?"
+
+            return (None, "Could not find message with ID {m_id}: {err}. {suggestion}".format(
                 m_id = message_id,
                 err = str(e),
+                suggestion = suggestion,
             ))
     elif query_arg:
         (message, err) = await vebyastquotebot.searching.find_message(
@@ -189,7 +209,7 @@ async def command_addquote(*, message, feedback, argstring):
                         action='store_true',
                         help="""don't do the final upload. for testing.""")
 
-    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
         return
@@ -205,16 +225,17 @@ async def command_addquote(*, message, feedback, argstring):
     limit = args.limit or DEFAULT_LIMIT
     limit = min(limit, MAX_LIMIT)
 
-    (start_message, start_err) = handle_message_arg(args.start_id, args.start, limit, channel)
-    (end_message, end_err) = handle_message_arg(args.end_id, args.end, limit, channel)
+    (start_message, start_err) = await handle_message_arg(args.start_id, args.start, limit, channel)
+    (end_message, end_err) = await handle_message_arg(args.end_id, args.end, limit, channel)
 
     if not start_message or not end_message:
         errs = []
         if not start_message:
-            errs += [start_err]
+            errs.append(start_err)
         if not end_message:
-            errs += [end_err]
+            errs.append(end_err)
         await client.edit_message(feedback, '\n'.join(errs))
+        return
 
     if start_message.channel != end_message.channel:
         # this should never happen. just in case, though...
@@ -292,7 +313,7 @@ async def remove_quote(*, message, feedback, argstring):
                         type=str,
                         action='append',
                         help='id of a quote to be deleted. can be given multiple times.')
-    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
         return
@@ -327,7 +348,7 @@ async def get_quote(*, message, feedback, argstring):
     parser.add_argument('quote_id',
                         type=str,
                         help='the id of the quote to be quoted.')
-    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
         return
@@ -367,7 +388,7 @@ async def clean(*, message, feedback, argstring):
                         type=str,
                         help='channel to clean up.')
 
-    (args, args_err) = argstring_parse(argstring, parser, parserio)
+    (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
         return
