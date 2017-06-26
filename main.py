@@ -299,6 +299,7 @@ async def command_addquote(*, message, feedback, argstring):
             nlines=len(json_obj['lines']),
             result=quote_block,
         ))
+        print(json_obj)
 
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
