@@ -74,6 +74,13 @@ def message_to_json(log):
         'edited': pytz.utc.localize(log.edited_timestamp).isoformat() if log.edited_timestamp else None,
         'content': log.clean_content,
         'authorcolor': '#{:06X}'.format(log.author.colour.value) if log.author.color.value else None,
+        'attachments': [
+            {
+                'url': a['url'],
+                'filename': a['filename'],
+            }
+            for a in log.attachments
+        ],
     }
 
 def format_quotehash(line, short=None, wrap=False):
