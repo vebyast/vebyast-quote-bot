@@ -1,6 +1,8 @@
 import discord
 import os
 import logging
+import logging.handlers
+from pythonjsonlogger import jsonlogger
 import pyparsing as ps
 import shlex
 import datetime
@@ -11,6 +13,32 @@ import vebyastquotebot.throwingargumentparser
 import io
 import asyncio
 import sys
+
+LOG_FILENAME = 'vebyastquotebot.log'
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# log to rotating logfiles
+rotating_handler = logging.handlers.RotatingFileHandler(
+    LOG_FILENAME,
+    maxBytes=20000000,
+    backupCount=3,
+)
+rotating_handler.setFormatter(
+    jsonlogger.JsonFormatter(" ".join("%({0})".format(l) for l in [
+        'asctime',
+        'filename',
+        'funcname',
+        'levelname',
+        'lineno',
+        'message',
+    ]))
+)
+logger.addHandler(rotating_handler)
+# plus log to stderr
+logger.addHandler(logging.StreamHandler())
+logging.info("Startup!")
 
 DEFAULT_LIMIT = 100
 MAX_LIMIT = 500
@@ -26,11 +54,11 @@ client = discord.Client()
 
 @client.event
 async def on_ready():
-    print('Logged in as')
-    print(client.user.name)
-    print(client.user.id)
-    print(client.user.discriminator)
-    print('------')
+    logging.info('Logged in as')
+    logging.info(client.user.name)
+    logging.info(client.user.id)
+    logging.info(client.user.discriminator)
+    logging.info('------')
 
 def public_message_parse(command_line):
     try:
@@ -170,6 +198,7 @@ async def on_message(message):
             feedback=feedback)
     except Exception as e:
         await client.edit_message(feedback, "Error executing {}".format(parseresult.command))
+        logger.error(e)
         raise e
 
 @command('/add')
@@ -299,7 +328,7 @@ async def command_addquote(*, message, feedback, argstring):
             nlines=len(json_obj['lines']),
             result=quote_block,
         ))
-        print(json_obj)
+        logging.info(json_obj)
 
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
@@ -456,18 +485,17 @@ async def print_help(*, message, feedback, argstring):
     )
 
 if 'QUOTE_DB_COMMIT' not in os.environ:
-    print("Need to set the QUOTE_DB_COMMIT environment variable to one of the following values: {}".format(
+    logging.error("Need to set the QUOTE_DB_COMMIT environment variable to one of the following values: {}".format(
         ', '.join(en.name for en in vebyastquotebot.quotedb.QuoteDBCommit)
     ), file=sys.stderr)
     sys.exit(-1)
 
 if 'DISCORD_BOT_TOKEN' not in os.environ:
-    print('Need to set the DISCORD_BOT_TOKEN environment variable', file=sys.stderr)
+    logging.error('Need to set the DISCORD_BOT_TOKEN environment variable', file=sys.stderr)
     sys.exit(-1)
 
 if 'USER_INTERFACE_URL' not in os.environ:
-    print('Need to set the USER_INTERFACE_URL environment variable', file=sys.stderr)
+    logging.error('Need to set the USER_INTERFACE_URL environment variable', file=sys.stderr)
     sys.exit(-1)
 
-logging.basicConfig(level=logging.INFO)
 client.run(os.environ['DISCORD_BOT_TOKEN'])
