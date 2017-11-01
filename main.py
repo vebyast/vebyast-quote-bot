@@ -35,8 +35,8 @@ async def on_ready():
 def public_message_parse(command_line):
     try:
         parseresult = (
-            ps.Keyword('<@' + client.user.id + '>').setResultsName('user_id') +
-            ps.restOfLine.setResultsName('command_line')
+            ('<@' + ps.Optional('!') + client.user.id + '>').setResultsName('user_id')
+            + ps.restOfLine.setResultsName('command_line')
         ).parseString(command_line)
         return (parseresult['command_line'], None)
     except ps.ParseException as e:
