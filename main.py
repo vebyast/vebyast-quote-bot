@@ -13,6 +13,7 @@ import vebyastquotebot.throwingargumentparser
 import io
 import asyncio
 import sys
+import json
 
 LOG_FILENAME = 'vebyastquotebot.log'
 
@@ -54,11 +55,11 @@ client = discord.Client()
 
 @client.event
 async def on_ready():
-    logging.info('Logged in as')
-    logging.info(client.user.name)
-    logging.info(client.user.id)
-    logging.info(client.user.discriminator)
-    logging.info('------')
+    logging.info('Successfully logged in', extra = {'custom': {
+        'username': client.user.name,
+        'uid': client.user.id,
+        'discriminator': client.user.discriminator,
+    }})
 
 def public_message_parse(command_line):
     try:
@@ -191,14 +192,30 @@ async def on_message(message):
 
     feedback = await client.send_message(message.channel, 'Received command {}. Processing...'.format(parseresult.command))
 
+    logging.info('handling command', extra = {'custom': {
+        'command': parseresult.command,
+        'argstring': parseresult.argstring,
+        'messageid': message.id,
+    }})
+
     try:
         await COMMANDS[parseresult.command](
             message=message,
             argstring=parseresult.argstring,
             feedback=feedback)
+
+        logging.info('successfully handled command', extra = {'custom': {
+            'command': parseresult.command,
+            'argstring': parseresult.argstring,
+            'messageid': message.id,
+        }})
     except Exception as e:
         await client.edit_message(feedback, "Error executing {}".format(parseresult.command))
-        logger.error(e)
+        logging.error(e, extra = {'custom': {
+            'command': parseresult.command,
+            'argstring': parseresult.argstring,
+            'messageid': message.id,
+        }})
         raise e
 
 @command('/add')
@@ -323,12 +340,23 @@ async def command_addquote(*, message, feedback, argstring):
             result=quote_block,
             url=os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
         ))
+        logging.info('adding quote', extra = {'custom': {
+            'num_lines': len(json_obj['lines']),
+            'quote_id': json_obj['id'],
+            'quote_block': quote_block,
+            'quote_url': os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
+        }})
     else:
         await client.edit_message(feedback, "NOOP passed, but /add would have been Done: {result} ({nlines} lines).".format(
             nlines=len(json_obj['lines']),
             result=quote_block,
         ))
-        logging.info(json_obj)
+        logging.info('adding quote with noop', extra = {'custom': {
+            'num_lines': len(json_obj['lines']),
+            'quote_id': json_obj['id'],
+            'quote_block': quote_block,
+            'quote_url': os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
+        }})
 
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
