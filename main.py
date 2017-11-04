@@ -41,8 +41,7 @@ logger.addHandler(rotating_handler)
 logger.addHandler(logging.StreamHandler())
 logging.info("Startup!")
 
-DEFAULT_LIMIT = 100
-MAX_LIMIT = 500
+DEFAULT_LIMIT = 1000
 
 COMMANDS = {}
 def command(name):
@@ -268,11 +267,10 @@ async def command_addquote(*, message, feedback, argstring):
             await client.edit_message(feedback, channel_err)
             return
 
-    limit = args.limit or DEFAULT_LIMIT
-    limit = min(limit, MAX_LIMIT)
+    limit = DEFAULT_LIMIT
 
-    (start_message, start_err) = await handle_message_arg(args.start_id, args.start, limit, channel)
-    (end_message, end_err) = await handle_message_arg(args.end_id, args.end, limit, channel)
+    (start_message, start_err) = await handle_message_arg(args.start_id, args.start_query, limit, channel)
+    (end_message, end_err) = await handle_message_arg(args.end_id, args.end_query, limit, channel)
 
     if not start_message or not end_message:
         errs = []
@@ -310,9 +308,9 @@ async def command_addquote(*, message, feedback, argstring):
             limit=limit,
         ))
         return
-    if len(logs) == MAX_LIMIT:
-        await client.edit_message(feedback, "Whoa, that's a big quote. Too big, in fact. :/ Talk to the bot's owner for help getting that many logs.")
-        return
+    # if len(logs) == DEFAULT_LIMIT:
+    #     await client.edit_message(feedback, "Whoa, that's a big quote. Too big, in fact. :/ Talk to the bot's owner for help getting that many logs.")
+    #     return
 
     await client.edit_message(feedback, "Got logs. Processing logs..." + quote_message)
 
@@ -468,7 +466,7 @@ async def clean(*, message, feedback, argstring):
         }
     elif args.count:
         log_args = {
-            'limit': min(args.count, MAX_LIMIT),
+            'limit': min(args.count, DEFAULT_LIMIT),
         }
 
     ndeletes = 0
