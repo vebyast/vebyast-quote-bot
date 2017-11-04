@@ -129,7 +129,7 @@ async def user_exists(user_id):
     try:
         await client.get_user_info(user_id)
         return True
-    except discord.NotFount:
+    except discord.NotFound:
         return False
 
 def channel_exists(channel_id):
