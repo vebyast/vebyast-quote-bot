@@ -230,29 +230,29 @@ async def command_addquote(*, message, feedback, argstring):
     start_group = parser.add_mutually_exclusive_group(required=True)
     start_group.add_argument('-S', '--start_id',
                              type=int,
-                             help='start of the quote, found by message ID (get using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID)')
-    start_group.add_argument('-s', '--start',
+                             help='The start of the quote, identified using a message ID. Get the ID using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID.')
+    start_group.add_argument('-s', '--start_query',
                              type=str,
-                             help='start of the quote, found by searching recent messages for matching words')
+                             help='''The start of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search end contiguous"'.''')
 
     end_group = parser.add_mutually_exclusive_group(required=True)
     end_group.add_argument('-E', '--end_id',
                            type=int,
-                           help='start of the quote, found by message ID (get using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID)')
-    end_group.add_argument('-e', '--end',
+                           help='The end of the quote, identified using a message ID. Get the ID using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID.')
+    end_group.add_argument('-e', '--end_query',
                            type=str,
-                           help='end of the quote, found by searching recent messages for matching words')
+                           help='''The end of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search end contiguous"'.''')
 
     parser.add_argument('-c', '--channel',
                         type=str,
-                        help='channel to pull quotes from')
-    parser.add_argument('--limit',
-                        type=int,
-                        help='maximum number of lines to pull')
+                        help='The channel to pull quotes from. Must be a clickable channel link.')
+    # parser.add_argument('--limit',
+    #                     type=int,
+    #                     help='maximum number of lines to pull')
 
     parser.add_argument('-n', '--noop',
                         action='store_true',
-                        help="""don't do the final upload. for testing.""")
+                        help="""Don't do the final upload. For testing purposes.""")
 
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
@@ -368,7 +368,7 @@ async def remove_quote(*, message, feedback, argstring):
     parser.add_argument('quote_id',
                         type=str,
                         action='append',
-                        help='id of a quote to be deleted. can be given multiple times.')
+                        help='ID of a quote to be deleted. Can be given multiple times.')
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
@@ -403,7 +403,7 @@ async def get_quote(*, message, feedback, argstring):
     )
     parser.add_argument('quote_id',
                         type=str,
-                        help='the id of the quote to be quoted.')
+                        help='The ID of the quote to be quoted.')
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
@@ -435,14 +435,14 @@ async def clean(*, message, feedback, argstring):
     volume_group = parser.add_mutually_exclusive_group(required=True)
     volume_group.add_argument('-n', '--count',
                               type=int,
-                              help='''clean up this bot's messages going back this many messages in the channel''')
+                              help='''Clean up this bot's messages going back this many messages in the channel.''')
     volume_group.add_argument('-m', '--minutes',
                               type=int,
-                              help='''clean up this bot's messages going back this many minutes''')
+                              help='''Clean up this bot's messages going back this many minutes in the channel.''')
 
     parser.add_argument('-c', '--channel',
                         type=str,
-                        help='channel to clean up.')
+                        help='Channel to clean up.')
 
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
@@ -514,14 +514,14 @@ if 'QUOTE_DB_COMMIT' not in os.environ:
     logging.error("Need to set the QUOTE_DB_COMMIT environment variable to one of the following values: {}".format(
         ', '.join(en.name for en in vebyastquotebot.quotedb.QuoteDBCommit)
     ), file=sys.stderr)
-    sys.exit(-1)
+    sys.exit(1)
 
 if 'DISCORD_BOT_TOKEN' not in os.environ:
     logging.error('Need to set the DISCORD_BOT_TOKEN environment variable', file=sys.stderr)
-    sys.exit(-1)
+    sys.exit(1)
 
 if 'USER_INTERFACE_URL' not in os.environ:
     logging.error('Need to set the USER_INTERFACE_URL environment variable', file=sys.stderr)
-    sys.exit(-1)
+    sys.exit(1)
 
 client.run(os.environ['DISCORD_BOT_TOKEN'])
