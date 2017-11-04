@@ -30,6 +30,7 @@ rotating_handler.setFormatter(
     jsonlogger.JsonFormatter(" ".join("%({0})".format(l) for l in [
         'asctime',
         'filename',
+        'pathname',
         'funcname',
         'levelname',
         'lineno',
@@ -52,13 +53,18 @@ def command(name):
 
 client = discord.Client()
 
+def extra_custom(**kwargs):
+    return { 'extra': { 'custom' : {
+        **kwargs,
+        'client_username': client.user.name if client.user else ""
+    } } }
+
 @client.event
 async def on_ready():
-    logging.info('Successfully logged in', extra = {'custom': {
-        'username': client.user.name,
-        'uid': client.user.id,
-        'discriminator': client.user.discriminator,
-    }})
+    logging.info('Successfully logged in', **extra_custom(
+        uid = client.user.id,
+        discriminator = client.user.discriminator,
+    ))
 
 def public_message_parse(command_line):
     try:
@@ -184,18 +190,15 @@ async def on_message(message):
 
     (parseresult, _) = command_line_parse(command_line)
     if not parseresult:
-        # feedback = await client.send_message(message.channel, 'No command recognized. Try `@{} /help`?'.format(
-        #     client.user.display_name,
-        # ))
         return
 
     feedback = await client.send_message(message.channel, 'Received command {}. Processing...'.format(parseresult.command))
 
-    logging.info('handling command', extra = {'custom': {
-        'command': parseresult.command,
-        'argstring': parseresult.argstring,
-        'messageid': message.id,
-    }})
+    logging.info('handling command', **extra_custom(
+        command = parseresult.command,
+        argstring = parseresult.argstring,
+        messageid = message.id,
+    ))
 
     try:
         await COMMANDS[parseresult.command](
@@ -203,18 +206,18 @@ async def on_message(message):
             argstring=parseresult.argstring,
             feedback=feedback)
 
-        logging.info('successfully handled command', extra = {'custom': {
-            'command': parseresult.command,
-            'argstring': parseresult.argstring,
-            'messageid': message.id,
-        }})
+        logging.info('successfully handled command', **extra_custom(
+            command = parseresult.command,
+            argstring = parseresult.argstring,
+            messageid = message.id,
+        ))
     except Exception as e:
         await client.edit_message(feedback, "Error executing {}".format(parseresult.command))
-        logging.error(e, extra = {'custom': {
-            'command': parseresult.command,
-            'argstring': parseresult.argstring,
-            'messageid': message.id,
-        }})
+        logging.error(e, **extra_custom(
+            command = parseresult.command,
+            argstring = parseresult.argstring,
+            messageid = message.id,
+        ))
         raise e
 
 @command('/add')
@@ -228,31 +231,34 @@ async def command_addquote(*, message, feedback, argstring):
         formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
     start_group = parser.add_mutually_exclusive_group(required=True)
-    start_group.add_argument('-S', '--start_id',
-                             type=int,
-                             help='The start of the quote, identified using a message ID. Get the ID using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID.')
-    start_group.add_argument('-s', '--start_query',
-                             type=str,
-                             help='''The start of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search end contiguous"'.''')
+    start_group.add_argument(
+        '-S', '--start_id',
+        type=int,
+        help='The start of the quote, identified using a message ID. Get the ID using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID.')
+    start_group.add_argument(
+        '-s', '--start_query',
+        type=str,
+        help='''The start of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search start contiguous"'.''')
 
     end_group = parser.add_mutually_exclusive_group(required=True)
-    end_group.add_argument('-E', '--end_id',
-                           type=int,
-                           help='The end of the quote, identified using a message ID. Get the ID using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID.')
-    end_group.add_argument('-e', '--end_query',
-                           type=str,
-                           help='''The end of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search end contiguous"'.''')
+    end_group.add_argument(
+        '-E', '--end_id',
+        type=int,
+        help='The end of the quote, identified using a message ID. Get the ID using developer mode: User Settings -> Appearance -> Developer Mode, then right-click and Get ID.')
+    end_group.add_argument(
+        '-e', '--end_query',
+        type=str,
+        help='''The end of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search end contiguous"'.''')
 
-    parser.add_argument('-c', '--channel',
-                        type=str,
-                        help='The channel to pull quotes from. Must be a clickable channel link.')
-    # parser.add_argument('--limit',
-    #                     type=int,
-    #                     help='maximum number of lines to pull')
+    parser.add_argument(
+        '-c', '--channel',
+        type=str,
+        help='The channel to pull quotes from. Must be a clickable channel link.')
 
-    parser.add_argument('-n', '--noop',
-                        action='store_true',
-                        help="""Don't do the final upload. For testing purposes.""")
+    parser.add_argument(
+        '-n', '--noop',
+        action='store_true',
+        help="""Don't do the final upload. For testing purposes.""")
 
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
@@ -308,9 +314,6 @@ async def command_addquote(*, message, feedback, argstring):
             limit=limit,
         ))
         return
-    # if len(logs) == DEFAULT_LIMIT:
-    #     await client.edit_message(feedback, "Whoa, that's a big quote. Too big, in fact. :/ Talk to the bot's owner for help getting that many logs.")
-    #     return
 
     await client.edit_message(feedback, "Got logs. Processing logs..." + quote_message)
 
@@ -325,6 +328,13 @@ async def command_addquote(*, message, feedback, argstring):
 
     await client.edit_message(feedback, "Processed logs. Saving and uploading..." + quote_message)
 
+    log_args = {
+        'num_lines': len(json_obj['lines']),
+        'quote_id': json_obj['id'],
+        'quote_block': quote_block,
+        'quote_url': os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
+    }
+
     if not args.noop:
         with vebyastquotebot.quotedb.QuoteDB(
                 docommit=vebyastquotebot.quotedb.QuoteDBCommit[os.environ['QUOTE_DB_COMMIT']],
@@ -332,29 +342,11 @@ async def command_addquote(*, message, feedback, argstring):
         ) as quote:
             quote.add_quote(json_obj)
 
-        await client.edit_message(feedback, "Done with /add! Quoted {result} ({nlines} lines).\nResult (maybe after a wait): <{url}>".format(
-            nlines=len(json_obj['lines']),
-            quote_id=json_obj['id'],
-            result=quote_block,
-            url=os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
-        ))
-        logging.info('adding quote', extra = {'custom': {
-            'num_lines': len(json_obj['lines']),
-            'quote_id': json_obj['id'],
-            'quote_block': quote_block,
-            'quote_url': os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
-        }})
+        await client.edit_message(feedback, "Done with /add! Quoted {quote_block} ({num_lines} lines).\nResult (maybe after a wait): <{quote_url}>".format(**log_args))
+        logging.info('adding quote', **extra_custom(**log_args))
     else:
-        await client.edit_message(feedback, "NOOP passed, but /add would have been Done: {result} ({nlines} lines).".format(
-            nlines=len(json_obj['lines']),
-            result=quote_block,
-        ))
-        logging.info('adding quote with noop', extra = {'custom': {
-            'num_lines': len(json_obj['lines']),
-            'quote_id': json_obj['id'],
-            'quote_block': quote_block,
-            'quote_url': os.environ['USER_INTERFACE_URL'] + '#/quote_id/' + str(json_obj['id']),
-        }})
+        await client.edit_message(feedback, "NOOP passed, but /add would have been Done: {result} ({nlines} lines).".format(**log_args))
+        logging.info('adding quote with noop', **extra_custom(**log_args))
 
 @command('/remove')
 async def remove_quote(*, message, feedback, argstring):
@@ -365,10 +357,11 @@ async def remove_quote(*, message, feedback, argstring):
         outfile=parserio,
         formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
-    parser.add_argument('quote_id',
-                        type=str,
-                        action='append',
-                        help='ID of a quote to be deleted. Can be given multiple times.')
+    parser.add_argument(
+        'quote_id',
+        type=str,
+        action='append',
+        help='ID of a quote to be deleted. Can be given multiple times.')
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
         await client.edit_message(feedback, args_err)
@@ -433,16 +426,19 @@ async def clean(*, message, feedback, argstring):
         formatter_class=vebyastquotebot.helpformatter.QuotebotHelpFormatter,
     )
     volume_group = parser.add_mutually_exclusive_group(required=True)
-    volume_group.add_argument('-n', '--count',
-                              type=int,
-                              help='''Clean up this bot's messages going back this many messages in the channel.''')
-    volume_group.add_argument('-m', '--minutes',
-                              type=int,
-                              help='''Clean up this bot's messages going back this many minutes in the channel.''')
+    volume_group.add_argument(
+        '-n', '--count',
+        type=int,
+        help='''Clean up this bot's messages going back this many messages in the channel.''')
+    volume_group.add_argument(
+        '-m', '--minutes',
+        type=int,
+        help='''Clean up this bot's messages going back this many minutes in the channel.''')
 
-    parser.add_argument('-c', '--channel',
-                        type=str,
-                        help='Channel to clean up.')
+    parser.add_argument(
+        '-c', '--channel',
+        type=str,
+        help='Channel to clean up.')
 
     (args, args_err) = await argstring_parse(argstring, parser, parserio)
     if not args:
@@ -513,15 +509,15 @@ async def print_help(*, message, feedback, argstring):
 if 'QUOTE_DB_COMMIT' not in os.environ:
     logging.error("Need to set the QUOTE_DB_COMMIT environment variable to one of the following values: {}".format(
         ', '.join(en.name for en in vebyastquotebot.quotedb.QuoteDBCommit)
-    ), file=sys.stderr)
+    ))
     sys.exit(1)
 
 if 'DISCORD_BOT_TOKEN' not in os.environ:
-    logging.error('Need to set the DISCORD_BOT_TOKEN environment variable', file=sys.stderr)
+    logging.error('Need to set the DISCORD_BOT_TOKEN environment variable')
     sys.exit(1)
 
 if 'USER_INTERFACE_URL' not in os.environ:
-    logging.error('Need to set the USER_INTERFACE_URL environment variable', file=sys.stderr)
+    logging.error('Need to set the USER_INTERFACE_URL environment variable')
     sys.exit(1)
 
 client.run(os.environ['DISCORD_BOT_TOKEN'])
