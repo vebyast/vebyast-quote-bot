@@ -66,6 +66,38 @@ async def on_ready():
         discriminator = client.user.discriminator,
     ))
 
+
+async def delete_if_x(reaction, user):
+    # ignore reactions that aren't on our own messages
+    if reaction.message.author != client.user:
+        return
+
+    if reaction.emoji == '❌':
+        logger.info("Deleting own post on X reaction", **extra_custom(
+            user_responsible = user.name,
+            reaction = reaction.emoji,
+        ))
+        await client.delete_message(reaction.message)
+
+@client.event
+async def on_reaction_add(reaction, user):
+    try:
+        logger.info('Received reaction', **extra_custom(
+            emoji = reaction.emoji,
+            is_me = user == client.user,
+        ))
+
+        # ignore reactions that we made ourself
+        if user == client.user:
+            return
+
+        await delete_if_x(reaction, user)
+
+    except Exception as e:
+        logging.error(e, **extra_custom())
+        raise e
+
+
 def public_message_parse(command_line):
     try:
         parseresult = (
@@ -219,6 +251,8 @@ async def on_message(message):
             messageid = message.id,
         ))
         raise e
+    finally:
+        await client.add_reaction(feedback, '❌')
 
 @command('/add')
 async def command_addquote(*, message, feedback, argstring):
