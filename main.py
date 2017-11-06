@@ -42,7 +42,7 @@ logger.addHandler(rotating_handler)
 logger.addHandler(logging.StreamHandler())
 logging.info("Startup!")
 
-DEFAULT_LIMIT = 1000
+DEFAULT_LIMIT = 500
 
 COMMANDS = {}
 def command(name):
@@ -82,11 +82,6 @@ async def delete_if_x(reaction, user):
 @client.event
 async def on_reaction_add(reaction, user):
     try:
-        logger.info('Received reaction', **extra_custom(
-            emoji = reaction.emoji,
-            is_me = user == client.user,
-        ))
-
         # ignore reactions that we made ourself
         if user == client.user:
             return
@@ -94,7 +89,7 @@ async def on_reaction_add(reaction, user):
         await delete_if_x(reaction, user)
 
     except Exception as e:
-        logging.error(e, **extra_custom())
+        logging.error(e.message, **extra_custom())
         raise e
 
 
@@ -173,7 +168,7 @@ async def user_exists(user_id):
 def channel_exists(channel_id):
     return not not client.get_channel(channel_id)
 
-async def handle_message_arg(id_arg, query_arg, limit, channel):
+async def handle_message_arg(id_arg, query_arg, react_arg, limit, channel):
     message = None
     err = None
     if id_arg:
@@ -193,10 +188,11 @@ async def handle_message_arg(id_arg, query_arg, limit, channel):
                 err = str(e),
                 suggestion = suggestion,
             ))
-    elif query_arg:
+    else:
         (message, err) = await vebyastquotebot.searching.find_message(
             client=client,
             querystring=query_arg,
+            reaction=react_arg,
             limit=limit,
             channel=channel,
             predicate=find_message_filter_predicate,
@@ -245,7 +241,7 @@ async def on_message(message):
         ))
     except Exception as e:
         await client.edit_message(feedback, "Error executing {}".format(parseresult.command))
-        logging.error(e, **extra_custom(
+        logging.error(e.message, **extra_custom(
             command = parseresult.command,
             argstring = parseresult.argstring,
             messageid = message.id,
@@ -273,6 +269,10 @@ async def command_addquote(*, message, feedback, argstring):
         '-s', '--start_query',
         type=str,
         help='''The start of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search start contiguous"'.''')
+    start_group.add_argument(
+        '--start_react',
+        action='store_const', const='arrow_double_down',
+        help='''The start of the quote, identified as the most recent message that has the :arrow_double_down: reaction.''')
 
     end_group = parser.add_mutually_exclusive_group(required=True)
     end_group.add_argument(
@@ -283,6 +283,10 @@ async def command_addquote(*, message, feedback, argstring):
         '-e', '--end_query',
         type=str,
         help='''The end of the quote, identified using a "quoted set of words" that will be looked for in recent messages. Words need not be contiguous or in order. This line of help-text, for example, would be found by a query like '--start "search end contiguous"'.''')
+    end_group.add_argument(
+        '--end_react',
+        action='store_const', const='arrow_double_up',
+        help='''The end of the quote, identified as the most recent message that has the :arrow_double_up: reaction.''')
 
     parser.add_argument(
         '-c', '--channel',
@@ -309,8 +313,8 @@ async def command_addquote(*, message, feedback, argstring):
 
     limit = DEFAULT_LIMIT
 
-    (start_message, start_err) = await handle_message_arg(args.start_id, args.start_query, limit, channel)
-    (end_message, end_err) = await handle_message_arg(args.end_id, args.end_query, limit, channel)
+    (start_message, start_err) = await handle_message_arg(args.start_id, args.start_query, args.start_react, limit, channel)
+    (end_message, end_err) = await handle_message_arg(args.end_id, args.end_query, args.end_react, limit, channel)
 
     if not start_message or not end_message:
         errs = []
